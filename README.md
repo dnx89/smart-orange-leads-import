@@ -1,59 +1,152 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Leads import
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A page that imports a CSV file of leads into MySQL. Every line of the file is stored — the
+ones with problems too — together with a status and the list of problems found in it, and the
+reading is cut into steps, so however long the file is, no request runs past PHP's standard
+`max_execution_time = 30`. A file is accepted up to 128 MB.
 
-## About Laravel
+Laravel 12, PHP 8.3, MySQL 8.0, nginx, all in Docker.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Running it
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Requirements: Docker with Compose v2, and `make` (optional — every target is one
+`docker compose` command, see the `Makefile`).
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+git clone <repository-url> leads-import
+cd leads-import
+make up
+```
 
-## Learning Laravel
+The first start builds the image, installs the Composer packages, creates `.env` from
+`.env.example`, generates the application key, runs the migrations and creates the demo user.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Open <http://localhost:8090> and sign in:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Email | Password |
+|---|---|
+| `admin@example.com` | `password` |
 
-## Laravel Sponsors
+Ports used on the host: `8090` (web), `3310` (MySQL).
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Importing a file
 
-### Premium Partners
+**Новий імпорт** (new import) → choose a `.csv` file → **Завантажити** (upload).
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+The file must be UTF-8, comma-separated, and start with this header:
 
-## Contributing
+```
+external_id,created_at,first_name,last_name,phone,email,city,source,utm_campaign,product,budget_uah,status,manager,comment,next_contact_at
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+A file with any other header is rejected before a single row is stored. XLSX is not accepted
+(see [Not included](#not-included)).
 
-## Code of Conduct
+**Історія завантажень** (upload history) lists every import: who, when, which file, and how many rows ended up
+`OK`, `Попередження` (warning) and `Помилка` (error). An import's page shows how many rows
+carry each problem, the rows themselves with a filter by status and by problem, and a link
+to download the result as CSV.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## How it stays within 30 seconds
 
-## Security Vulnerabilities
+1. **The file goes up in one request.** Only reading it is split, because only reading is PHP
+   script time: nginx receives the whole request body before PHP starts, so the transfer takes
+   as long as the connection needs without making the script long. The upload limits in
+   `php.ini` and in nginx are raised past the largest accepted file for this.
+2. **Rows are read in steps.** The page calls the processing endpoint again and again. Each
+   call reads rows for at most `min(max_execution_time − 5, 5)` seconds, then reports the byte
+   position it reached (`ftell`) and returns. The next call continues from that position
+   (`fseek`), so a longer file only means more steps, never a longer request.
+3. **The position lives in the session**, under a key of the import's id, and is dropped when the
+   import ends. It is state of one run, not part of the upload's record, so it is not a column.
+4. **One step is one transaction.** The rows a step read and the counters it increased are
+   committed together, so the counters can never claim more rows than are stored.
+5. **Rows go to the database in batches** of 1 000 per `INSERT`.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Measured on the provided file (100 000 rows, 25.9 MB, `APP_DEBUG=true`, on the development
+machine): two steps, 8.1 s in total.
 
-## License
+## What is checked in a row
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Every problem found is recorded as a flag on the row; a row can carry several. Only a
+**critical** flag makes the row an error, the rest make it a warning.
+
+| Column | Flag raised when | Critical |
+|---|---|---|
+| (whole row) | not exactly 15 columns | yes |
+| `external_id` | empty, or not `LD-` followed by 6 digits | |
+| `created_at` | empty, or not `YYYY-MM-DD HH:MM:SS`, or a date that does not exist | |
+| `first_name`, `last_name` | empty, or longer than 100 characters | |
+| `phone` | empty, or not `380` followed by 9 digits | yes |
+| `email` | empty, fails the same RFC check as Laravel's `email` rule, or longer than 255 | |
+| `city`, `source`, `product` | empty, or longer than 100 characters | |
+| `utm_campaign`, `manager`, `comment` | longer than 255 characters | |
+| `budget_uah` | not a whole number after removing spaces (`23 700` and `23 700` with a no-break space are accepted) | |
+| `status` | not one of `new`, `contacted`, `in_progress`, `qualified`, `proposal_sent`, `won`, `lost`, `spam` | |
+| `next_contact_at` | not `YYYY-MM-DD HH:MM:SS` (may be empty) | |
+
+`external_id` is not checked for duplicates: the file is stored as it is.
+
+Result on the provided file: **97 691** OK, **1 496** warnings, **813** errors (all of them
+invalid phones). Flags: phone 813, email 995, first name 516.
+
+## Database
+
+| Table | What it holds |
+|---|---|
+| `imports` | one row per upload: who, when, file name and size, status, row counters, the failure reason |
+| `import_rows` | every line of every file: its line number, status, flags (a bitmask) and the 15 values exactly as they stood in the file |
+| `users` | accounts |
+
+The structure is in the migrations (`database/migrations/`) and, as plain SQL, in
+[`database/schema.sql`](database/schema.sql). After changing a migration, regenerate the
+SQL with `make schema`.
+
+## Settings that matter
+
+| Where | Setting | Value |
+|---|---|---|
+| `docker/php/php.ini` | `max_execution_time` | 30 |
+| | `upload_max_filesize` / `post_max_size` | 160M / 160M |
+| | `memory_limit` | 256M |
+| `docker/nginx/default.conf` | `client_max_body_size` | 160m |
+| `app/Http/Requests/StoreImportRequest.php` | `MAX_BYTES` — largest accepted file | 128 MB |
+| `app/Services/Import/ImportStep.php` | `BATCH_SIZE` — rows per `INSERT` | 1 000 |
+| | seconds per step — constructor argument | `max_execution_time` − 5, at most 5 |
+
+There is no `config/import.php`: none of these is changed per environment, so each sits in the
+class that reads it. The file's expected columns are the keys of `ImportRow::SOURCE_COLUMNS`.
+
+`memory_limit` is above PHP's 128M default because with `APP_DEBUG=true` Laravel keeps up to 101
+queries of a request for its error page, bindings included, and one step sends dozens of
+1 000-row inserts.
+
+## Tests
+
+```bash
+make test
+```
+
+PHPUnit, against a separate database `leads_import_test` that the container creates on its
+first start. Each test runs in a transaction that is rolled back afterwards.
+
+## Useful commands
+
+| Command | What it does |
+|---|---|
+| `make up` / `make down` | start and wait until healthy / stop, keeping the data |
+| `make build` | rebuild the image and start |
+| `make fresh` | drop the database volume and start from scratch — deletes all data |
+| `make test` | run the tests |
+| `make schema` | regenerate `database/schema.sql` |
+| `make shell` | a shell in the PHP container |
+| `make xdebug` | start with Xdebug enabled (port 9003, IDE key `PHPSTORM`) |
+| `make artisan COMMAND="…"` | any Artisan command |
+
+## Not included
+
+- **XLSX.** Converting an XLSX file is one sequential pass over its compressed sheet, which
+  cannot be resumed in the middle. Measured on the provided file: 12.3 s for 100 000 rows; at that
+  rate (an estimate, not measured) a file of about 250 000 rows would no longer convert within
+  one 30-second request. Save the
+  sheet as CSV instead (Google Sheets: *File → Download → Comma-separated values*).
