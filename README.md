@@ -42,6 +42,13 @@ external_id,created_at,first_name,last_name,phone,email,city,source,utm_campaign
 A file with any other header is rejected before a single row is stored. XLSX is not accepted
 (see [Not included](#not-included)).
 
+A file to try it with is in the repository: **`storage/app/sample/leads-100k.csv`** — 100 000
+rows, 25.9 MB, the data this import was written for. Every line has all 15 columns, and the
+problems are in the values: 813 phones that are not phones, 995 broken e-mail addresses, 516 empty
+first names, dates that do not exist, 205 `external_id` values that occur twice on different
+people, and budgets written with a no-break space between the thousands. Importing it gives
+97 691 `OK`, 1 496 warnings and 813 errors.
+
 **Історія завантажень** (upload history) lists every import: who, when, which file, and how many rows ended up
 `OK`, `Попередження` (warning) and `Помилка` (error). An import's page shows how many rows
 carry each problem, the rows themselves with a filter by status and by problem, and a link
