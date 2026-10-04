@@ -54,7 +54,7 @@ class ImportService
     {
         $import = Import::query()->create([
             'user_id' => $user->id,
-            'original_name' => $file->getClientOriginalName(),
+            'file_name' => $file->getClientOriginalName(),
             'file_size' => (int) $file->getSize(),
             'status' => ImportStatus::Processing,
         ]);

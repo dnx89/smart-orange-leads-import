@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property int $user_id
- * @property string $original_name
+ * @property string $file_name
  * @property int $file_size
  * @property int $rows_total
  * @property int $rows_clean
@@ -30,7 +30,7 @@ class Import extends Model
 {
     protected $fillable = [
         'user_id',
-        'original_name',
+        'file_name',
         'file_size',
         'status',
     ];
@@ -66,5 +66,17 @@ class Import extends Model
     public function filePath(): string
     {
         return 'imports/'.$this->id.'.csv';
+    }
+
+    /**
+     * Stops the import with the reason the page shows. The reason reaches the user, so it says what
+     * is wrong with the file or what went wrong on the server.
+     */
+    public function fail(string $reason): void
+    {
+        $this->status = ImportStatus::Failed;
+        $this->error = $reason;
+        $this->finished_at = now();
+        $this->save();
     }
 }

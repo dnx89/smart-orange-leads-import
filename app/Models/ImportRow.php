@@ -47,8 +47,6 @@ class ImportRow extends Model
     {
         return [
             'status' => ImportRowStatus::class,
-            'lead_created_at' => 'datetime',
-            'next_contact_at' => 'datetime',
         ];
     }
 
@@ -58,6 +56,16 @@ class ImportRow extends Model
     public function import(): BelongsTo
     {
         return $this->belongsTo(Import::class);
+    }
+
+    /**
+     * The columns the uploaded file must have, in file order.
+     *
+     * @return list<string>
+     */
+    public static function fileColumns(): array
+    {
+        return array_keys(self::SOURCE_COLUMNS);
     }
 
     /**
