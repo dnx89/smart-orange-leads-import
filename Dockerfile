@@ -12,7 +12,7 @@ RUN docker-php-ext-install pdo_mysql zip \
 	&& docker-php-ext-enable xdebug
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-COPY docker/php/php.ini /user/local/etc/php/conf.d/zz-app.ini
+COPY docker/php/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php/xdebug.ini /usr/local/etc/php/conf.d/zz-xdebug.ini
 
 

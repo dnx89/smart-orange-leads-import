@@ -51,7 +51,7 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASSWORD:-secret}"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 120
       start_period: 60s
 
 volumes:
