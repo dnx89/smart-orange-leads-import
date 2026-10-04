@@ -15,7 +15,7 @@ class StoreImportRequest extends FormRequest
      * The largest file accepted, in bytes. PHP's own upload limits are set above it, so that a
      * bigger file is refused by this rule rather than dropped before the request reaches Laravel.
      */
-    public const MAX_BYTES = 50 * 1024 * 1024;
+    public const MAX_BYTES = 128 * 1024 * 1024;
 
     /**
      * @return array<string, mixed>

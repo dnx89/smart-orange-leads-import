@@ -22,7 +22,7 @@ use RuntimeException;
  */
 final class ImportStep
 {
-    private const STEP_SECONDS_CAP = 10;
+    private const STEP_SECONDS_CAP = 5;
 
     private const MARGIN_SECONDS = 5;
 
