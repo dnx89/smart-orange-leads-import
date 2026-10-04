@@ -15,7 +15,7 @@ Route::middleware('auth')->group(function () {
 
     Route::redirect('/', '/imports');
 
-    // Placeholders until Manual 05.
+    // Temporary: the import pages and their controllers do not exist yet
     Route::view('imports', 'imports.placeholder')->name('imports.index');
     Route::view('imports/create', 'imports.placeholder')->name('imports.create');
 });
