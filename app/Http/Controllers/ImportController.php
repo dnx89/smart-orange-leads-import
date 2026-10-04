@@ -31,6 +31,7 @@ class ImportController extends Controller
     {
         return view('imports.create', [
             'columns' => ImportRow::fileColumns(),
+            'maxBytes' => StoreImportRequest::MAX_BYTES,
         ]);
     }
 

@@ -22,9 +22,9 @@ use RuntimeException;
  */
 final class ImportStep
 {
-    private const STEP_SECONDS_CAP = 20;
+    private const STEP_SECONDS_CAP = 10;
 
-    private const MARGIN_SECONDS = 10;
+    private const MARGIN_SECONDS = 5;
 
     /**
      * Rows sent to the database in one INSERT.

@@ -8,6 +8,7 @@ use App\Enums\ImportStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * One uploaded file: who uploaded it, what it was, and how its processing ended.
@@ -22,9 +23,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $rows_error
  * @property ImportStatus $status
  * @property string|null $error
- * @property \Illuminate\Support\Carbon|null $started_at
- * @property \Illuminate\Support\Carbon|null $finished_at
- * @property \Illuminate\Support\Carbon|null $created_at
+ * @property Carbon|null $started_at
+ * @property Carbon|null $finished_at
+ * @property Carbon|null $created_at
  */
 class Import extends Model
 {
@@ -69,13 +70,19 @@ class Import extends Model
     }
 
     /**
+     * Longest reason kept: a database error carries the whole failed query, which the column
+     * cannot hold and the page would not show anyway.
+     */
+    private const REASON_WIDTH = 500;
+
+    /**
      * Stops the import with the reason the page shows. The reason reaches the user, so it says what
      * is wrong with the file or what went wrong on the server.
      */
     public function fail(string $reason): void
     {
         $this->status = ImportStatus::Failed;
-        $this->error = $reason;
+        $this->error = mb_substr($reason, 0, self::REASON_WIDTH);
         $this->finished_at = now();
         $this->save();
     }
